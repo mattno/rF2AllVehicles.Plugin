@@ -1,4 +1,4 @@
-# rF2AllVehiclas.Plugin
+# rF2AllVehicles.Plugin
 
 SimHub plugin to use last driven car to preserve seat, mirror, and FFB multipler settings, for all other cars of same kind.
 
@@ -20,8 +20,8 @@ Cars are identified by its name and version inside `all_vehicles.ini`. We curren
 
 ### Backups
 
-Backups, 10 of them, of `all_vehicles.ini` is created when the file is updated.
+Backups, 10 of them rotating, of `all_vehicles.ini` is created when/if the file is updated. The backup number is appended to the end. 
 
 ## Issues
 
-Please report issues on github, https://github.com/mattno/rF2AllVehiclas.Plugin/issues.
+Please report issues on github, https://github.com/mattno/rF2AllVehicles.Plugin/issues.

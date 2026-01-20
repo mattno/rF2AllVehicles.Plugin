@@ -4,11 +4,11 @@ using System.Runtime.InteropServices;
 // Les informations générales relatives à un assembly dépendent de 
 // l'ensemble d'attributs suivant. Changez les valeurs de ces attributs pour modifier les informations
 // associées à un assembly.
-[assembly: AssemblyTitle("rF2AllVehiclas.Plugin")]
+[assembly: AssemblyTitle("rF2AllVehicles.Plugin")]
 [assembly: AssemblyDescription("SimHub plugin for rFactor 2, keeping changes in seat, mirror and FFB synchronized in between the same type of vehicle, i.e. liveries.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("mattno")]
-[assembly: AssemblyProduct("rF2AllVehiclas.Plugin")]
+[assembly: AssemblyProduct("rF2AllVehicles.Plugin")]
 [assembly: AssemblyCopyright("Copyright ©  2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -31,5 +31,5 @@ using System.Runtime.InteropServices;
 // Vous pouvez spécifier toutes les valeurs ou indiquer les numéros de build et de révision par défaut 
 // en utilisant '*', comme indiqué ci-dessous :
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.0.1")]
+[assembly: AssemblyFileVersion("1.0.0.1")]
