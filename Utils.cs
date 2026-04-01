@@ -22,6 +22,9 @@ namespace mattno.Plugins
         public DirectoryPath Directory
             => new DirectoryPath(Path.GetDirectoryName(FullName));
 
+        /// <summary>
+        /// A FilePath is considered to be missing the directory if it does not contain any directory information, i.e. it is just a file name.
+        /// </summary>
         public bool DirectoryMissing
             => FullName == Name;
 
@@ -34,9 +37,9 @@ namespace mattno.Plugins
             {
                 throw new ArgumentException("File path cannot be null or empty", nameof(path));
             }
-            if (path.Last() == Path.PathSeparator)
+            if (path.Last() == Path.DirectorySeparatorChar || path.Last() == Path.AltDirectorySeparatorChar)
             {
-                throw new ArgumentException("File path does not look to like a file", nameof(path));
+                throw new ArgumentException($"File path does not look like a file - must not end with '{path.Last()}'", nameof(path));
             }
             if (Path.IsPathRooted(path) && Path.GetPathRoot(path) == path)
             {
@@ -53,7 +56,7 @@ namespace mattno.Plugins
                string.Equals(FullName, other.FullName, StringComparison.OrdinalIgnoreCase);
 
         public override int GetHashCode()
-            => FullName.ToLowerInvariant().GetHashCode();
+            => StringComparer.OrdinalIgnoreCase.GetHashCode(FullName);
 
         public override string ToString() => FullName;
 

@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,100 +15,146 @@ namespace mattno.Plugins
     {
         private class DebounceDispatcher
         {
-            private readonly Dictionary<string, CancellationTokenSource> _timers = new Dictionary<string, CancellationTokenSource>();
+            private readonly ILog _logger;
             private readonly TimeSpan _debounceTime;
+            private readonly ConcurrentDictionary<FilePath, CancellationTokenSource> _timers = new ConcurrentDictionary<FilePath, CancellationTokenSource>();
 
-            public DebounceDispatcher(TimeSpan debounceTime)
+            public DebounceDispatcher(ILog logger, TimeSpan debounceTime)
             {
+                _logger = logger ?? throw new ArgumentNullException(nameof(logger)); 
                 _debounceTime = debounceTime;
             }
 
-            public void Debounce(string key, Func<Task> action)
+            internal async Task DebounceAsync(FilePath key, Func<Task> action)
             {
-                if (_timers.TryGetValue(key, out var cts))
+                var cts = new CancellationTokenSource();
+                _ = _timers.AddOrUpdate(key, cts, (_, old) =>
                 {
-                    cts.Cancel();
-                    _timers.Remove(key);
-                }
+                    try { old.Cancel(); } catch (ObjectDisposedException) { }
+                    try { old.Dispose(); } catch { }
+                    return cts;
 
-                cts = new CancellationTokenSource();
-                _timers[key] = cts;
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(_debounceTime, cts.Token);
-                        await action();
-                    }
-                    catch (TaskCanceledException) { }
                 });
+
+                try
+                {
+                    await Task.Delay(_debounceTime, cts.Token);
+                    if (_timers.TryGetValue(key, out var current) && ReferenceEquals(current, cts))
+                    {
+                        await action().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        _logger.Info($"[{nameof(DebounceDispatcher)}] Timer for {key} was removed before action could execute.");
+                    }
+                }
+                catch (TaskCanceledException) { }
+                catch (ObjectDisposedException) { }
+                catch (Exception ex)
+                {
+                    _logger.Error($"[{nameof(DebounceDispatcher)}] Error executing debounced action for {key}: {ex.Message}", ex);
+                }
+                finally
+                {
+                    // Remove and dispose only if our CTS is still the registered one.
+                    if (_timers.TryGetValue(key, out var current) && ReferenceEquals(current, cts))
+                    {
+                        if (_timers.TryRemove(key, out var removed) && ReferenceEquals(removed, cts))
+                        {
+                            try { removed.Dispose(); } catch { }
+                        }
+                    }
+                    else
+                    {
+                        // If we've been replaced already, ensure our CTS is disposed to avoid leaks.
+                        try { cts.Dispose(); } catch { }
+                    }
+                }
+            }
+
+
+
+            internal void Info(string prefix, FilePath key)
+            {
+                _logger.Debug($"[{nameof(DebounceDispatcher)}] {prefix} => Timer for {key}: {(_timers.ContainsKey(key) ? "EXISTS" : "MISSING")}.");
             }
 
             internal void Dispose()
             {
                 foreach (var cts in _timers.Values)
                 {
-                    cts.Cancel();
+                    try { cts.Cancel(); } catch (ObjectDisposedException) { }
+                    try { cts.Dispose(); } catch { }
                 }
                 _timers.Clear();
             }
+
         }
 
         private readonly ILog _logger;
 
-        private readonly IDictionary<DirectoryPath, FileSystemWatcher> _watchers = new ConcurrentDictionary<DirectoryPath, FileSystemWatcher>();
-        private readonly IDictionary<FilePath, Func<FilePath, Task>> _filesWatched = new ConcurrentDictionary<FilePath, Func<FilePath, Task>>();
-        private readonly DebounceDispatcher _debouncer = new DebounceDispatcher(TimeSpan.FromSeconds(1.25));
+        private readonly ConcurrentDictionary<DirectoryPath, FileSystemWatcher> _watchers = new ConcurrentDictionary<DirectoryPath, FileSystemWatcher>();
+        private readonly ConcurrentDictionary<FilePath, Func<FilePath, Task>> _filesWatched = new ConcurrentDictionary<FilePath, Func<FilePath, Task>>();
+        private readonly DebounceDispatcher _debouncer;
 
         public FileWatcher(ILog logger)
         {
             _logger = logger;
+            _debouncer = new DebounceDispatcher(logger,TimeSpan.FromSeconds(3.0));
         }
 
         public void Register(FilePath fileToWatch, Func<FilePath, Task> action)
-
         {
-            if (_filesWatched.ContainsKey(fileToWatch))
+            if (fileToWatch == null) throw new ArgumentNullException(nameof(fileToWatch));
+            if (action == null) throw new ArgumentNullException(nameof(action));
+
+            if (!_filesWatched.TryAdd(fileToWatch, action))
                 return;
 
-            if (!_watchers.TryGetValue(fileToWatch.Directory, out var watcher))
+            _watchers.GetOrAdd(fileToWatch.Directory, dir =>
             {
-                watcher = new FileSystemWatcher
+                var watcher = new FileSystemWatcher
                 {
                     Path = fileToWatch.Directory,
                     IncludeSubdirectories = false,
-                    Filter = "*",
+                    Filter = "*.*",
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
                     EnableRaisingEvents = true,
                 };
                 watcher.Changed += OnFileChanged;
                 watcher.Created += OnFileChanged;
-                watcher.Renamed += OnFileChanged;
 
-                _watchers[fileToWatch.Directory] = watcher;
-
-            }
-            _filesWatched[fileToWatch] = action;
+                return watcher;
+            });
         }
 
-        internal void Unregister(FilePath playerJsonFile)
+        internal void Unregister(FilePath file)
         {
-            _filesWatched.Remove(playerJsonFile);
+            _filesWatched.TryRemove(file, out _);
+            if (_filesWatched.Keys.Any(f => f.Directory == file.Directory))
+            {
+                if (_watchers.TryRemove(file.Directory, out var removed)) {
+                    Dispose(removed);
+                }
+                
+            }
         }
 
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
             var file = new FilePath(e.FullPath);
-            if (!_filesWatched.Keys.Contains(file))
+            if (!_filesWatched.TryGetValue(file, out var action))
                 return;
 
-            _debouncer.Debounce(file, async () =>
+            _debouncer.Info(e.ChangeType.ToString(), file);
+
+            _ = _debouncer.DebounceAsync(file, async () =>
             {
-                // in case dispose was called while debouncing
-                if (!_filesWatched.Keys.Contains(file))
+                // Ensure the action still exists for this file; prefer re-resolving the delegate to handle updates.
+                if (!_filesWatched.TryGetValue(file, out var latestAction))
                     return;
 
-                await _filesWatched[file](file);
+                await latestAction(file).ConfigureAwait(false);
             });
         }
 
@@ -117,9 +164,22 @@ namespace mattno.Plugins
             _filesWatched.Clear();
             foreach (var watcher in _watchers.Values)
             {
-                watcher.Dispose();
+                Dispose(watcher);
             }
             _watchers.Clear();
+        }
+
+        private void Dispose(FileSystemWatcher watcher)
+        {
+            try
+            {
+                watcher.Changed -= OnFileChanged;
+                watcher.Created -= OnFileChanged;
+                watcher.Renamed -= OnFileChanged;
+                watcher.EnableRaisingEvents = false;
+                watcher.Dispose();
+            }
+            catch { }
         }
 
     }

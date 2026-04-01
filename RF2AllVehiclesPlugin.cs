@@ -11,10 +11,8 @@ namespace mattno.Plugins
     [PluginName("rF2 AllVehicles Plugin")]
     public class RF2AllVehiclesPlugin : IDataPlugin
     {
-        private bool _gameRunning = false;
+        private bool _rf2Running = false;
         private Rf2AllVehicles _rf2AllVehicles;
-        private FileWatcher _fileWatcher;
-        private Task _processQueue;
 
         /// <summary>
         /// Instance of the current plugin manager
@@ -45,27 +43,27 @@ namespace mattno.Plugins
             // --- DETECT GAME STARTED/STOPPED (Session Active) ---
             if (data.GameName == "RFactor2")
             {
-                if (!_gameRunning && data.RunningGameProcessDetected)
+                if (!_rf2Running && data.RunningGameProcessDetected)
                 {
+                    _rf2Running = true;
                     OnGameProcessStarted();
-                    _gameRunning = true;
                 }
-                else if (_gameRunning && !data.RunningGameProcessDetected)
+                else if (_rf2Running && !data.RunningGameProcessDetected)
                 {
+                    _rf2Running = false;
                     OnGameProcessStopped();
-                    _gameRunning = false;
                 }
             }
-            else if (_gameRunning)
+            else if (_rf2Running)
             {
                 SimHub.Logging.Current.Warn($"[{nameof(RF2AllVehiclesPlugin)}] Still running, without process existing detected!");
-                _gameRunning = false;
+                _rf2Running = false;
             }
         }
 
-        // --- Custom Methods to keep code clean ---
         private void OnGameProcessStarted()
         {
+
             Process rf2Process = Process.GetProcessesByName("rFactor2").FirstOrDefault();
             if (rf2Process == default)
             {
@@ -73,25 +71,12 @@ namespace mattno.Plugins
                 return;
             }
             _rf2AllVehicles = new Rf2AllVehicles(SimHub.Logging.Current, rf2Process);
-            if (_fileWatcher == null)
-            {
-                _fileWatcher = new FileWatcher(SimHub.Logging.Current);
-            }
-            _fileWatcher.Register(_rf2AllVehicles._playerJsonFile, (filePath) =>
-            {
-                _rf2AllVehicles?.EnqueueVehicle();
-                return Task.CompletedTask;
-            });
-
         }
 
         private void OnGameProcessStopped()
         {
-            _fileWatcher?.Unregister(_rf2AllVehicles._playerJsonFile);
-            _processQueue = Task.Run(() =>
-            {
-                _rf2AllVehicles?.ProcessQueue();
-            });
+            _rf2AllVehicles?.ProcessQueue();
+            End(this.PluginManager); // free resources, will be re-created at next start
         }
 
         /// <summary>
@@ -101,13 +86,9 @@ namespace mattno.Plugins
         /// <param name="pluginManager"></param>
         public void End(PluginManager pluginManager)
         {
-            _fileWatcher?.Dispose();
-            _fileWatcher = null;
-            if (_processQueue != null && !_processQueue.IsCompleted)
-            {
-                SimHub.Logging.Current.Info($"[{nameof(RF2AllVehiclesPlugin)}] Wating to finish processing of tracked vehicles.");
-                _processQueue.Wait();
-            }
+            _rf2AllVehicles?.Dispose();
+            _rf2AllVehicles = null;
+
         }
 
         /// <summary>
