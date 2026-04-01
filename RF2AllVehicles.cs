@@ -6,10 +6,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace mattno.Plugins
 {
-
 
     internal static class IEnumarableExtensions
     {
@@ -17,11 +17,11 @@ namespace mattno.Plugins
         {
             if (list == null)
             {
-                return "[null]";
+                return "null";
             }
             if (list.Count() == 0)
             {
-                return "[]";
+                return "[(0 items)]";
             }
             var shownItems = list.Take(maxItemsToShow).Select(item => item?.ToString() ?? "null");
             var result = string.Join(", ", shownItems);
@@ -98,7 +98,7 @@ namespace mattno.Plugins
 
 
         /// <summary>
-        /// Create a new Vehicle, coping certain fields from other Vehicle
+        /// Create a new Vehicle, copying certain fields from other Vehicle
         /// </summary>
         /// <param name="other"></param> The other Vehicle to use  fields from
         /// <param name="fieldNames"></param> The actual fields/data to use from the other Vehicle
@@ -127,10 +127,9 @@ namespace mattno.Plugins
             return swappedLine ?? lineToSwap;
         }
 
-        public override string ToString()
-        {
-            return $"{{{nameof(Vehicle)}{{{nameof(ID)}={ID}}}}}";
-        }
+        public override string ToString() => $"{{{nameof(Vehicle)}{{{nameof(ID)}={ID}}}}}";
+
+        public string IDString => $"{nameof(ID)}={ID}";
 
         public static bool operator ==(Vehicle left, Vehicle right)
         {
@@ -185,10 +184,10 @@ namespace mattno.Plugins
             {
                 throw new ArgumentNullException(nameof(value), "Value must not be empty!");
             }
-            return new VehicleFile() { Value = RemoveNoise(value) };
+            return new VehicleFile() { Value = RelativeInstalled(value) };
         }
 
-        private static string RemoveNoise(string value)
+        private static string RelativeInstalled(string value)
         {
             var splits = value.Split(Separator.First());
             var skip = Array.FindIndex(splits, p => p.Equals("Vehicles", StringComparison.OrdinalIgnoreCase));
@@ -232,9 +231,9 @@ namespace mattno.Plugins
         /// <returns>Returns true if item was added, false if already existed and just repushed.</returns>
         internal bool Repush(T item)
         {
-            var requeud = _items.Remove(item);
+            var repushed = _items.Remove(item);
             _items.AddLast(item);
-            return !requeud;
+            return !repushed;
         }
 
         public bool TryPop(out T item)
@@ -250,20 +249,20 @@ namespace mattno.Plugins
             return true;
         }
 
-        internal int Count()
-        {
-            return _items.Count;
-        }
+        internal int Count => _items.Count;
     }
 
     internal class Rf2AllVehicles
     {
         private const int MAX_BACKUPS = 10;
         private readonly ILog _logger;
-        public readonly FilePath _playerJsonFile;
+        private readonly FilePath _playerJsonFile;
         private readonly FilePath _allVehiclesIniFile;
+        private readonly FileWatcher _fileWatcher;
+
         private readonly UniqueStack<VehicleFile> queue = new UniqueStack<VehicleFile>();
         private static readonly string[] fieldNames = new string[] { "FOV", "Seat", "SeatPitch", "RearViewSize", "Mirror", "MirrorPhysical", "MirrorLeft", "MirrorCenter", "MirrorRight", "FFBSteeringTorqueMult" };
+        private Task _processQueue;
 
         internal Rf2AllVehicles(ILog logger, System.Diagnostics.Process proc)
         {
@@ -272,6 +271,15 @@ namespace mattno.Plugins
             var rF2Home = new FilePath(proc.GetMainModuleFileName()).Directory.Parent;
             _playerJsonFile = new FilePath(rF2Home, @"UserData\player\player.JSON");
             _allVehiclesIniFile = new FilePath(rF2Home, @"UserData\player\all_vehicles.ini");
+
+
+            _fileWatcher = new FileWatcher(SimHub.Logging.Current);
+            _fileWatcher.Register(_playerJsonFile, filePath =>
+            {
+                EnqueueVehicle();
+                return Task.CompletedTask;
+            });
+
 
             logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] Will update '{_allVehiclesIniFile}' when {proc.ProcessName} ends. Vehicles are added for processing by tracking changes in '{_playerJsonFile}'.");
         }
@@ -293,44 +301,63 @@ namespace mattno.Plugins
                     }
                 }
             }
-            _logger.Info($"Jsonpath 'DRIVER.Vehicle File' missing in '{_playerJsonFile.FullName}'!");
+            _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] Element 'DRIVER.Vehicle File' missing in '{_playerJsonFile.FullName}'!");
         }
 
         internal void ProcessQueue()
         {
-            if (queue.Count() == 0)
+            if (queue.Count == 0)
             {
                 return;
             }
-            var lines = File.ReadAllLines(_allVehiclesIniFile.FullName, Encoding.ASCII);
-            var outLines = lines.Take(1).ToList();
-            _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {lines.Length} lines read from '{_allVehiclesIniFile}'.");
-
-            var vehicles = LoadVehicles(lines);
-            _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {vehicles.Count} vehicles loaded.");
-
-            var numberOfVehiclesUpdated = 0;
-            while (queue.TryPop(out var vehicleFile))
+            _processQueue = Task.Run(() =>
             {
-                numberOfVehiclesUpdated += CopyToSimilar(vehicleFile, vehicles);
+                try
+                {
+                    ProcessQueueInternal();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error($"[{nameof(RF2AllVehiclesPlugin)}] Unable to process queue: {ex}");
+                }
+            });
+        }
+
+        private void ProcessQueueInternal()
+        {
+            if (!File.Exists(_allVehiclesIniFile.FullName))
+            {
+                _logger.Warn($"[{nameof(RF2AllVehiclesPlugin)}] '{_allVehiclesIniFile.FullName}' does not exist, skipping update.");
+                return;
+            }
+
+            var lines = File.ReadAllLines(_allVehiclesIniFile.FullName, Encoding.ASCII);
+            var allVehicles = LoadVehicles(lines);
+            var numberOfVehiclesUpdated = 0;
+            while (queue.TryPop(out VehicleFile vehicleFile))
+            {
+                numberOfVehiclesUpdated += CopyToSimilar(vehicleFile, allVehicles);
             }
             if (numberOfVehiclesUpdated == 0)
             {
-                _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] No vehicles needed update, skipping writing '{_allVehiclesIniFile}'.");
+                _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] No vehicles updated, skipping write to '{_allVehiclesIniFile.FullName}'.");
                 return;
             }
-            outLines.AddRange(vehicles.SelectMany(v => v.Raw));
 
-            Write(outLines, numberOfVehiclesUpdated);
+            var outLines = new List<string>();
+            outLines.AddRange(lines.Take(1));
+            allVehicles.ForEach(v => outLines.AddRange(v.Raw));
+            WriteAllVehiclesFile(outLines, numberOfVehiclesUpdated);
         }
 
-        private void Write(List<string> outLines, int numberOfVehiclesUpdated)
+
+        private void WriteAllVehiclesFile(List<string> lines, int numberOfVehiclesUpdated)
         {
             try
             {
                 BackupRotate();
-                File.WriteAllLines(_allVehiclesIniFile.FullName, outLines, Encoding.ASCII);
-                _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {numberOfVehiclesUpdated} vehicles updated - {outLines.Count} lines written to '{_allVehiclesIniFile}'.");
+                File.WriteAllLines(_allVehiclesIniFile.FullName, lines, Encoding.ASCII);
+                _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {numberOfVehiclesUpdated} vehicles updated - {lines.Count} lines written to '{_allVehiclesIniFile}'.");
             }
             catch (Exception ex)
             {
@@ -390,66 +417,82 @@ namespace mattno.Plugins
                 return 0;
             }
 
-            var similar = toAllVehicles
-                .Where(predicate: veh => veh.ID != fromVehicle.ID)
-                .Where(predicate: veh => fromVehicle.VehicleFile.IsSimilar(veh.VehicleFile));
+            var similarIds = new List<string>();
+            var updatedIds = new List<string>();
 
-            var touched = similar
-                .Select(s => s.WithOther(fromVehicle, fieldNames));
+            // Single indexed pass: check similarity, compute updated candidate, replace in place if changed.
+            for (var i = 0; i < toAllVehicles.Count; i++)
+            {
+                var v = toAllVehicles[i];
 
-            var updated = touched
-                .Where(predicate: t =>
+                if (v.ID == fromVehicle.ID)
+                    continue;
+
+                if (!fromVehicle.VehicleFile.IsSimilar(v.VehicleFile))
+                    continue;
+
+                similarIds.Add(v.IDString);
+
+                // Create updated candidate by copying selected fields from fromVehicle
+                var candidate = v.WithOther(fromVehicle, fieldNames);
+
+                // If changed, replace in list and track updated IDs
+                if (!candidate.Equals(v))
                 {
-                    var u = similar.First(s => t.ID == s.ID && t.VehicleFile.Equals(s.VehicleFile));
-                    return !t.Equals(u);
-                })
-                .ToList();
+                    toAllVehicles[i] = candidate;
+                    updatedIds.Add(candidate.IDString);
+                }
+            }
 
-            updated.ToList()
-                .ForEach(upd =>
-                {
-                    var index = toAllVehicles.FindIndex(v => v.ID == upd.ID);
-                    if (index == -1)
-                    {
-                        _logger.Error($"[{nameof(RF2AllVehiclesPlugin)}] Unable to find index for updated {upd}");
-                    }
-                    else
-                    {
-                        toAllVehicles[index] = upd;
-
-                    }
-                });
-            _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {fromVehicle.VehicleFile} {fromVehicle} => {similar.FormatListForLog(20)} similar vehicles: {updated.FormatListForLog(20)} updated.");
-            return updated.Count();
+            _logger.Info($"[{nameof(RF2AllVehiclesPlugin)}] {fromVehicle.VehicleFile} {fromVehicle.IDString} => similar:{similarIds.FormatListForLog(20)}; updated:{updatedIds.FormatListForLog(20)}.");
+            return updatedIds.Count();
         }
 
         private List<Vehicle> LoadVehicles(string[] lines)
         {
             var vehicles = new List<Vehicle>();
-            var beginRow = -1;
+            // Reuse a single buffer to collect the current [VEHICLE] block lines.
+            var current = new List<string>();
             for (var i = 1; i < lines.Length; i++)
             {
                 var line = lines[i];
                 if ("[VEHICLE]".Equals(line))
                 {
-                    if (beginRow != -1)
+                    if (current.Count > 0)
                     {
-                        var endRow = i - 1;
-                        vehicles.Add(Vehicle.From(lines.Skip(beginRow).Take(endRow - beginRow + 1)));
+                        vehicles.Add(Vehicle.From(current));
+                        current.Clear();
                     }
-                    beginRow = i;
-                }
+                    // new block (including the marker) added next, from cleared buffer
+                } 
+                current.Add(line);
             }
-            if (beginRow != -1)
+            // Handle last block if any
+            if (current.Count > 0)
             {
-                vehicles.Add(Vehicle.From(lines.Skip(beginRow)));
+                vehicles.Add(Vehicle.From(current));
+                current.Clear();
             }
-
-            var neededBeginning = _allVehiclesIniFile.Directory.Parts();
 
             return vehicles
                 .Where(v => v.File.DirectoryMissing || v.IsInstalled)
                 .ToList();
+        }
+
+        internal void Dispose()
+        {
+            _fileWatcher.Unregister(_playerJsonFile);
+            _fileWatcher.Dispose();
+            if (_processQueue != null && !_processQueue.IsCompleted)
+            {
+                SimHub.Logging.Current.Info($"[{nameof(RF2AllVehiclesPlugin)}] Waiting to finish processing of tracked vehicles.");
+                if (!_processQueue.Wait(TimeSpan.FromSeconds(10)))
+                {
+                    SimHub.Logging.Current.Warn($"[{nameof(RF2AllVehiclesPlugin)}] Timed out while waiting for processing of tracked vehicles to finish. Background processing may still be running.");
+                }
+
+
+            }
         }
     }
 
