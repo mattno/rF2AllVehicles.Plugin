@@ -21,13 +21,13 @@ jobs:
       uses: NuGet/setup-nuget@v1
 
     - name: Restore NuGet Packages
-      run: nuget restore YourSolutionName.sln
+      run: nuget restore rF2AllVehicles.Plugin.sln
 
     - name: Build Solution
-      run: msbuild YourSolutionName.sln /p:Configuration=Release
+      run: msbuild rF2AllVehicles.Plugin.sln /p:Configuration=Release
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: SimHub-Plugin-DLL
-        path: bin/Release/**/YourPluginName.dll
+        path: bin/Release/**/rF2AllVehicles.Plugin.dll
