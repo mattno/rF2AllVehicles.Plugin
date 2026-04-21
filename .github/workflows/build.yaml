@@ -1,0 +1,33 @@
+name: Build SimHub Plugin
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest # Required because SimHub plugins use Windows-specific .NET
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1
+
+    - name: Restore NuGet Packages
+      run: nuget restore rF2AllVehicles.Plugin.sln
+
+    - name: Build Solution
+      run: msbuild rF2AllVehicles.Plugin.sln /p:Configuration=Release
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SimHub-Plugin-DLL
+        path: bin/Release/**/rF2AllVehicles.Plugin.dll
