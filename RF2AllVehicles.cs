@@ -405,7 +405,7 @@ namespace mattno.Plugins
                     }
                 }
             });
-            _allVehiclesIniFile.ToFileInfo().MoveTo(_allVehiclesIniFile.FullName +".1");
+            _allVehiclesIniFile.ToFileInfo().MoveTo(_allVehiclesIniFile.FullName + ".1");
         }
 
         private int CopyToSimilar(VehicleFile fromVehicleFile, List<Vehicle> toAllVehicles)
@@ -464,7 +464,7 @@ namespace mattno.Plugins
                         current.Clear();
                     }
                     // new block (including the marker) added next, from cleared buffer
-                } 
+                }
                 current.Add(line);
             }
             // Handle last block if any

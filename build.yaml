@@ -1,0 +1,33 @@
+name: Build SimHub Plugin
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest # Required because SimHub plugins use Windows-specific .NET
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1
+
+    - name: Restore NuGet Packages
+      run: nuget restore YourSolutionName.sln
+
+    - name: Build Solution
+      run: msbuild YourSolutionName.sln /p:Configuration=Release
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SimHub-Plugin-DLL
+        path: bin/Release/**/YourPluginName.dll

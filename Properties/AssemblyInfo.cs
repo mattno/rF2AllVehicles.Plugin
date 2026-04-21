@@ -33,3 +33,6 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.1")]
 [assembly: AssemblyFileVersion("1.0.0.1")]
+
+// Permet à la classe de test d'accéder aux membres internes de ce projet
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("rF2AllVehicles.Plugin.Tests")]

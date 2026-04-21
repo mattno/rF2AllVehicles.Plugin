@@ -1,10 +1,8 @@
 ﻿using log4net;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,7 +19,7 @@ namespace mattno.Plugins
 
             public DebounceDispatcher(ILog logger, TimeSpan debounceTime)
             {
-                _logger = logger ?? throw new ArgumentNullException(nameof(logger)); 
+                _logger = logger ?? throw new ArgumentNullException(nameof(logger));
                 _debounceTime = debounceTime;
             }
 
@@ -100,7 +98,7 @@ namespace mattno.Plugins
         public FileWatcher(ILog logger)
         {
             _logger = logger;
-            _debouncer = new DebounceDispatcher(logger,TimeSpan.FromSeconds(3.0));
+            _debouncer = new DebounceDispatcher(logger, TimeSpan.FromSeconds(3.0));
         }
 
         public void Register(FilePath fileToWatch, Func<FilePath, Task> action)
@@ -133,10 +131,11 @@ namespace mattno.Plugins
             _filesWatched.TryRemove(file, out _);
             if (_filesWatched.Keys.Any(f => f.Directory == file.Directory))
             {
-                if (_watchers.TryRemove(file.Directory, out var removed)) {
+                if (_watchers.TryRemove(file.Directory, out var removed))
+                {
                     Dispose(removed);
                 }
-                
+
             }
         }
 
