@@ -28,7 +28,7 @@ And settings copied when rFactor 2 is closed:
 
 ## Installation
 
-Copy DLL from rlease into SimHub installation folder. SimHub should pick up the plugin automatically.
+Copy DLL from release into SimHub installation folder. SimHub should pick up the plugin automatically.
 
 
 ### Backups
