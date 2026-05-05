@@ -30,4 +30,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SimHub-Plugin-DLL
-        path: bin/Release/**/rF2AllVehicles.Plugin.dll
+        path: rF2AllVehicles.Plugin/bin/Release/**/rF2AllVehicles.Plugin.dll
