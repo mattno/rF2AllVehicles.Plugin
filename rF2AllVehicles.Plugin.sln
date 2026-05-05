@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36811.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rF2AllVehicles.Plugin", "rF2AllVehicles.Plugin.csproj", "{833040C9-FE5E-4CCF-B21D-71979E049B6B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rF2AllVehicles.Plugin", "rF2AllVehicles.Plugin\rF2AllVehicles.Plugin.csproj", "{833040C9-FE5E-4CCF-B21D-71979E049B6B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rF2AllVehicles.Plugin.Tests", "Tests\rF2AllVehicles.Plugin.Tests\rF2AllVehicles.Plugin.Tests.csproj", "{552B40C9-2445-126C-FE99-B4CAB005DB93}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rF2AllVehicles.Plugin.Tests", "rF2AllVehicles.Plugin.Tests\rF2AllVehicles.Plugin.Tests.csproj", "{552B40C9-2445-126C-FE99-B4CAB005DB93}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +26,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {394BDF20-DC18-4FDD-873D-455D21170108}
+		SolutionGuid = {1D9FCB89-B78F-4243-8CDA-63BB56CEF210}
 	EndGlobalSection
 EndGlobal

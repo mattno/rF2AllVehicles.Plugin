@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\rF2AllVehicles.Plugin.csproj" />
+    <ProjectReference Include="..\rF2AllVehicles.Plugin\rF2AllVehicles.Plugin.csproj" />
   </ItemGroup>
 
   <ItemGroup>
