@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ "master" ]
 
+# Permissions are required for the Test Reporter to post results back to the PR
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: windows-latest # Required because SimHub plugins use Windows-specific .NET
@@ -26,7 +32,25 @@ jobs:
     - name: Build Solution
       run: msbuild rF2AllVehicles.Plugin.sln /p:Configuration=Release
 
+    - name: Run Tests
+      # We use dotnet test to generate a .trx result file for the reporter
+      run: |
+        dotnet test rF2AllVehicles.Plugin.Tests\rF2AllVehicles.Plugin.Tests.csproj `
+        --configuration Release `
+        --no-build `
+        --logger "trx;LogFileName=test-results.trx"
+
+    - name: Publish Test Report
+      uses: dorny/test-reporter@v1
+      if: always() # Ensures reports are uploaded even if tests fail
+      with:
+        name: Unit Test Results
+        path: "**/test-results.trx"
+        reporter: dotnet-trx
+
     - name: Upload Artifact
+      # Only runs if the build and tests actually passed
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: SimHub-Plugin-DLL
