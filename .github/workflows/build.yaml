@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch: # This adds the manual "Play" button in GitHub
 
 # Permissions are required for the Test Reporter to post results back to the PR
 permissions:
@@ -75,7 +76,10 @@ jobs:
         reporter: dotnet-trx
 
     - name: Create GitHub Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      # Only release if we manually trigger it OR if the commit says [release]
+      if: |
+        github.event_name == 'workflow_dispatch' || 
+        (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.tag_version.outputs.new_tag }}
