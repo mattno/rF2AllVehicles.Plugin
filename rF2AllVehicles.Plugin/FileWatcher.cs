@@ -97,7 +97,7 @@ namespace mattno.Plugins
 
         public FileWatcher(ILog logger)
         {
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _debouncer = new DebounceDispatcher(logger, TimeSpan.FromSeconds(3.0));
         }
 
