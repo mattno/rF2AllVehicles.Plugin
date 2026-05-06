@@ -3,7 +3,6 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <OutputType>Library</OutputType>
-    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <SIMHUB_INSTALL_PATH Condition="'$(GITHUB_ACTIONS)' == 'true'">$(SolutionDir)\libs\</SIMHUB_INSTALL_PATH>
   </PropertyGroup>
 

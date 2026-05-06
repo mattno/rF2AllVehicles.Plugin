@@ -1,14 +1,18 @@
 ﻿<Project>
   <PropertyGroup>
-    <Product>rF2AllVehicles.Plugin</Product>
-    <Title>rF2AllVehicles.Plugin</Title>
-    <Version>1.0.0.1</Version>
-    <AssemblyVersion>1.0.1.1</AssemblyVersion>
-    <FileVersion>1.0.1.1</FileVersion>
-    <Authors>mattno</Authors>
-    <Company>mattno</Company>
+    <Version>0.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <AssemblyTitle>rF2 All Vehicles Plugin</AssemblyTitle>
+    <Product>rF2 All Vehicles - Automates vehicle settings</Product>
     <Description>SimHub plugin for rFactor 2, keeping changes in seat, mirror and FFB synchronized in between the same type of vehicle, i.e. liveries.</Description>
+    <Company>mattno</Company>
     <Copyright>Copyright © 2026</Copyright>
-    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <NeutralLanguage>en</NeutralLanguage>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
 </Project>
