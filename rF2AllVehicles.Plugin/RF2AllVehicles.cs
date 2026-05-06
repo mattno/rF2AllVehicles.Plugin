@@ -19,18 +19,20 @@ namespace mattno.Plugins
             {
                 return "null";
             }
-            if (list.Count() == 0)
+            var items = list.ToList();
+            if (items.Count == 0)
             {
                 return "[(0 items)]";
             }
-            var shownItems = list.Take(maxItemsToShow).Select(item => item?.ToString() ?? "null");
+            var shownItems = items.Take(maxItemsToShow).Select(item => item?.ToString() ?? "null");
             var result = string.Join(", ", shownItems);
 
-            if (list.Count() > maxItemsToShow)
+            if (items.Count > maxItemsToShow)
             {
-                result += ", ...";
+                // Use the single-character Unicode ellipsis (U+2026) instead of three dots
+                result += ", \u2026";
             }
-            return $"[{result} ({list.Count()} items)]";
+            return $"[{result} ({items.Count} items)]";
         }
     }
 

@@ -8,7 +8,7 @@ on:
 
 # Permissions are required for the Test Reporter to post results back to the PR
 permissions:
-  contents: read
+  contents: write
   checks: write
   pull-requests: write
 
@@ -19,6 +19,32 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch full history for better test reporting
+
+    # 1. Determine Version (Only on Master)
+    - name: Bump version and push tag
+      id: tag_version
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        default_bump: patch
+
+    # 2. Update Directory.Build.props (Only on Master)
+    # This ensures the DLL metadata matches the GitHub Release version
+    - name: Update Version in Directory.Build.props
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      shell: pwsh
+      run: |
+        $newVer = "${{ steps.tag_version.outputs.new_version }}"
+        $propsPath = "Directory.Build.props"
+        $content = Get-Content $propsPath
+        # Regex looks for <Version>1.2.3</Version> and replaces the middle bit
+        $content = $content -replace '<Version>.*</Version>', "<Version>$newVer</Version>"
+        Set-Content $propsPath $content
+        Write-Host "Updated $propsPath to version $newVer"
+
 
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
@@ -48,10 +74,22 @@ jobs:
         path: "**/test-results.trx"
         reporter: dotnet-trx
 
+    - name: Create GitHub Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        files: rF2AllVehicles.Plugin/bin/Release/net48/rF2AllVehicles.Plugin.dll
+        body: |
+          Automatic build for version ${{ steps.tag_version.outputs.new_tag }}
+
+
     - name: Upload Artifact
       # Only runs if the build and tests actually passed
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: SimHub-Plugin-DLL
-        path: rF2AllVehicles.Plugin/bin/Release/**/rF2AllVehicles.Plugin.dll
+        # Falls back to SHA if no new_tag is generated (like in PRs)
+        name: SimHub-Plugin-${{ steps.tag_version.outputs.new_tag || github.sha }}
+        path: rF2AllVehicles.Plugin/bin/Release/net48/rF2AllVehicles.Plugin.dll
