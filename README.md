@@ -1,6 +1,6 @@
 # rF2AllVehicles.Plugin
 
-SimHub plugin to use last driven car to preserve seat, mirror, and FFB multipler settings, for all other cars of same kind.
+SimHub plugin to use last driven car to preserve _seat_, _mirrors_, and _FFB multipler_ settings, for all cars of same kind.
 
 ## Background
 
